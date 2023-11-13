@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: controlcenter-mockapi
+  name: controlcenter-mockapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: controlcenter-mockapi
+  template:
+    metadata:
+      labels:
+        app: controlcenter-mockapi
+    spec:
+      containers:
+      - name: controlcenter-mockapi
+        image: #{accountId}#.dkr.ecr.us-west-2.amazonaws.com/#{envName}#-controlcenter-mockapi:#{Build.BuildId}#
+        imagePullPolicy: Always
+         
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "#{envName}#" 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: controlcenter-mockapi
+    k8s-app: controlcenter-mockapi
+  name: controlcenter-mockapi
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  type: LoadBalancer
+  selector:
+    app: controlcenter-mockapi

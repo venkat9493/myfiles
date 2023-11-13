@@ -1,0 +1,152 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    variables:     
+       - group: meridian-build-pipeline-variables
+
+       
+    steps:
+    - task: NuGetCommand@2
+      inputs:
+          command: 'restore'
+          restoreSolution: '**/*.sln'
+          feedsToUse: 'select'
+          vstsFeed: 'Shared@Local'
+    - task: DotNetCoreCLI@2
+      inputs:
+          command: 'publish'
+          publishWebProjects: false
+          projects: 'ControlCenterMockApi/ControlCenterMockApi.csproj'
+          arguments: '-o $(Pipeline.Workspace)'
+    - task: PublishPipelineArtifact@1
+      inputs:
+          targetPath: '$(Pipeline.Workspace)'
+          artifact: 'publish'
+          publishLocation: 'pipeline'
+    - task: Docker@2
+      displayName: Building a Docker image
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/ControlCenterMockApi/Dockerfile'
+        buildContext: '$(System.DefaultWorkingDirectory)'
+        arguments: '--build-arg PAT=$(NUGET_PAT)'
+        repository: '$(DEV_ACCOUNT_ID).dkr.ecr.us-west-2.amazonaws.com/dev-$(AWS_ECR_REPOSITORY_NAME)'
+        tags: |
+          $(Build.BuildId)
+            
+    - task: CopyFiles@2
+      inputs:
+        Contents: '$(Build.SourcesDirectory)/deployment.yaml'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+
+    - task: ECRPushImage@1
+      inputs:
+        awsCredentials: 'dev-$(AWS_CREDENTIALS)'
+        regionName: '$(AWS_REGION)'
+        imageSource: 'imagename'
+        sourceImageName: '$(DEV_ACCOUNT_ID).dkr.ecr.us-west-2.amazonaws.com/dev-$(AWS_ECR_REPOSITORY_NAME)'
+        sourceImageTag: '$(Build.BuildId)'
+        repositoryName: 'dev-$(AWS_ECR_REPOSITORY_NAME)'
+        pushTag: '$(Build.BuildId)'
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          sudo docker run -d --restart on-failure -v /var/run/docker.sock:/var/run/docker.sock:ro -v /etc/qualys:/usr/local/qualys/qpa/data/conf/agent-data -v /usr/local/qualys/sensor/data:/usr/local/qualys/qpa/data -e ACTIVATIONID=faa80e73-f2d4-495d-bda6-b7edb446dbea -e CUSTOMERID=2db43b8f-8fbc-56ef-8366-4a4922ec450b -e POD_URL=https://cmsqagpublic.qg3.apps.qualys.com/ContainerSensor --net=host --name qualys-container-sensor qualys/qcs-sensor:latest --cicd-deployed-sensor
+          
+          ##sleep time to detect sensor##
+          sleep 10s
+
+
+##QA#####
+    - task: Docker@2
+      displayName: Building a Docker image
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/ControlCenterMockApi/Dockerfile'
+        buildContext: '$(System.DefaultWorkingDirectory)'
+        arguments: '--build-arg PAT=$(NUGET_PAT)'
+        repository: '$(QA_ACCOUNT_ID).dkr.ecr.us-west-2.amazonaws.com/qa-$(AWS_ECR_REPOSITORY_NAME)'
+        tags: |
+          $(Build.BuildId)
+            
+    - task: CopyFiles@2
+      inputs:
+        Contents: '$(Build.SourcesDirectory)/deployment.yaml'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+
+    - task: ECRPushImage@1
+      inputs:
+        awsCredentials: 'qa-$(AWS_CREDENTIALS)'
+        regionName: '$(AWS_REGION)'
+        imageSource: 'imagename'
+        sourceImageName: '$(QA_ACCOUNT_ID).dkr.ecr.us-west-2.amazonaws.com/qa-$(AWS_ECR_REPOSITORY_NAME)'
+        sourceImageTag: '$(Build.BuildId)'
+        repositoryName: 'qa-$(AWS_ECR_REPOSITORY_NAME)'
+        pushTag: '$(Build.BuildId)'
+  ##UAT######
+          
+    - task: Docker@2
+      displayName: Building a Docker image
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/ControlCenterMockApi/Dockerfile'
+        buildContext: '$(System.DefaultWorkingDirectory)'
+        arguments: '--build-arg PAT=$(NUGET_PAT)'
+        repository: '$(UAT_ACCOUNT_ID).dkr.ecr.us-west-2.amazonaws.com/uat-$(AWS_ECR_REPOSITORY_NAME)'
+        tags: |
+          $(Build.BuildId)
+            
+    - task: CopyFiles@2
+      inputs:
+        Contents: '$(Build.SourcesDirectory)/deployment.yaml'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+
+    - task: ECRPushImage@1
+      inputs:
+        awsCredentials: 'uat-$(AWS_CREDENTIALS)'
+        regionName: '$(AWS_REGION)'
+        imageSource: 'imagename'
+        sourceImageName: '$(UAT_ACCOUNT_ID).dkr.ecr.us-west-2.amazonaws.com/uat-$(AWS_ECR_REPOSITORY_NAME)'
+        sourceImageTag: '$(Build.BuildId)'
+        repositoryName: 'uat-$(AWS_ECR_REPOSITORY_NAME)'
+        pushTag: '$(Build.BuildId)'
+
+
+
+

@@ -1,0 +1,90 @@
+# ASP.NET Core (.NET Framework)
+# Build and test ASP.NET Core projects targeting the full .NET Framework.
+# Add steps that publish symbols, save build artifacts, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
+
+trigger:
+- ControlCenterMockApi_Windows
+
+resources:
+- repo: self
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+steps:
+- task: NuGetToolInstaller@1
+#- task: NuGetCommand@2
+  #inputs:
+    #command: 'restore'
+    #restoreSolution: '$(solution)'
+    #feedsToUse: 'config'
+- task: NuGetCommand@2
+  inputs:
+    command: 'restore'
+    restoreSolution: '$(solution)'
+    feedsToUse: 'select'
+    vstsFeed: 'Shared@Local'
+
+
+- task: SonarQubePrepare@5
+  inputs:
+    SonarQube: 'Meridian-SQ-SC'
+    scannerMode: 'MSBuild'
+    projectKey: 'DTA-ClientServices-POC'
+    projectName: 'DTA-ClientServices-POC'
+    extraProperties: |
+      sonar.cs.opencover.reportsPaths=$(Build.SourcesDirectory)/**/coverage.opencover.xml
+      sonar.cs.vstest.reportsPaths=$(Agent.TempDirectory)/*.trx
+      #sonar.exclusions=**/*.bin
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'publish'
+    publishWebProjects: false
+    projects: 'ControlCenterMockApi/ControlCenterMockApi.csproj'
+    arguments: '-o $(Pipeline.Workspace)'
+    
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: '$(Pipeline.Workspace)'
+    artifact: 'publish'
+    publishLocation: 'pipeline'
+
+    
+# - task: DotNetCoreCLI@2
+#   inputs:
+#     command: custom
+#     custom: tool
+#     arguments: install --tool-path . dotnet-reportgenerator-globaltool
+#   displayName: Install ReportGenerator tool
+
+- task: DotNetCoreCLI@2
+  displayName: dotnet test
+  inputs:
+    command: test
+    #arguments: '--configuration $(BuildConfiguration) /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=./ClientService.UnitTests/'
+    #arguments: '--configuration $(buildConfiguration) /p:CollectCoverage=true /p:CoverletOutput=$(Build.SourcesDirectory)\TestResult\ /p:CoverletOutputFormat=cobertura'
+    arguments: '--configuration $(BuildConfiguration) --collect "Code Coverage"'
+    #projects: '**/*.UnitTests.csproj'
+    nobuild: true
+
+- task: PublishCodeCoverageResults@1
+  displayName: 'Publish code coverage'
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: '$(Agent.TempDirectory)\*.coverage'
+    reportDirectory: '$(Build.SourcesDirectory)/CodeCoverage'
+
+- task: SonarQubeAnalyze@5
+- task: SonarQubePublish@5
+  inputs:
+    pollingTimeoutSec: '100'
+
+
+
