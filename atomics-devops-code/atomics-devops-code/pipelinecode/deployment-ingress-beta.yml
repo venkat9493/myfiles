@@ -1,0 +1,236 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: meridian-angular-ui
+  name: meridian-angular-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: meridian-angular-ui
+  template:
+    metadata:
+      labels:
+        app: meridian-angular-ui
+    spec:
+      containers:
+      - name: meridian-angular-ui
+        image: #{accountId}#.dkr.ecr.us-west-2.amazonaws.com/#{ecrName}#:#{buildNo}#
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: meridian-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}, {"HTTP":80}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:#{accountId}#:certificate/#{certificate-id}#
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  rules:
+    - host: webportal.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: meridian-angular-ui
+                port:
+                  number: 80
+    - host: uimicroservice.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ui-microservice
+                port:
+                  number: 80
+    - host: catalog-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-mgmt
+                port:
+                  number: 80
+    - host: authentication.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: authentication
+                port:
+                  number: 80
+    - host: collab-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: collab-mgmt
+                port:
+                  number: 80
+    - host: ingestion-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ingestion-mgmt
+                port:
+                  number: 80
+    - host: notification-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-mgmt
+                port:
+                  number: 80
+    - host: platform-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-mgmt
+                port:
+                  number: 80
+    - host: study-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: study-mgmt
+                port:
+                  number: 80
+    - host: template-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: template-mgmt
+                port:
+                  number: 80
+    - host: tenant-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tenant-mgmt
+                port:
+                  number: 80
+    - host: user-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: user-mgmt
+                port:
+                  number: 80
+    - host: audit-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: audit-mgmt
+                port:
+                  number: 80
+    - host: infra-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: infra-mgmt
+                port:
+                  number: 80    
+    - host: subscription-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: subscription-mgmt
+                port:
+                  number: 80     
+    - host: metering-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: metering-mgmt
+                port:
+                  number: 80 
+    - host: instrument-mgmt.#{tenantId}#-#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: instrument-mgmt
+                port:
+                  number: 80                    
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: meridian-angular-ui
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  type: NodePort
+  selector:
+    app: meridian-angular-ui
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: meridian-config
+data:
+  buildID: "#{Build.BuildId}#"
+  buildNumber: "#{Build.BuildNumber}#"
+  releaseName: "#{Release.ReleaseName}#"

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: app-name
+  name: app-name
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-name
+  template:
+    metadata:
+      labels:
+        app: app-name
+    spec:
+      containers:
+      - name: app-name
+        image: #{accountId}#.dkr.ecr.us-west-2.amazonaws.com/#{ecrName}#:#{buildNo}#
+        imagePullPolicy: Always
+         
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "#{aspEnvName}#"
+        - name: TENANT_NAME
+          value: "#{TENANT_NAME}#"
+        - name: BUILD_ID
+          valueFrom:
+            configMapKeyRef:
+              name: atomx-config
+              key: buildID
+        - name: BUILD_NUMBER
+          valueFrom:
+            configMapKeyRef:
+              name: atomx-config
+              key: buildNumber
+        - name: RELEASE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: atomx-config
+              key: releaseName
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: app-name
+    k8s-app: app-name
+  name: app-name
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  type: NodePort
+  selector:
+    app: app-name
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atomx-config
+data:
+  buildID: "#{Build.BuildId}#"
+  buildNumber: "#{Build.BuildNumber}#"
+  releaseName: "#{Release.ReleaseName}#"

@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: app-name
+  name: app-name
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-name
+  template:
+    metadata:
+      labels:
+        app: app-name
+    spec:
+      containers:
+      - name: app-name
+        image: #{accountId}#.dkr.ecr.us-west-2.amazonaws.com/#{ecrName}#:#{buildNo}#
+        imagePullPolicy: Always
+         
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 2048Mi
+            cpu: 400m
+          requests:
+            cpu: 200m
+            memory: 2048Mi
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "#{envName}#"
+        - name: TENANT_NAME
+          value: "#{tenantName}#"
+        - name: BUILD_ID
+          valueFrom:
+            configMapKeyRef:
+              name: meridian-config
+              key: buildID
+        - name: BUILD_NUMBER
+          valueFrom:
+            configMapKeyRef:
+              name: meridian-config
+              key: buildNumber
+        - name: RELEASE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: meridian-config
+              key: releaseName
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: app-name
+    k8s-app: app-name
+  name: app-name
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  type: NodePort
+  selector:
+    app: app-name
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: meridian-config
+data:
+  buildID: "#{BuildId}#"
+  buildNumber: "#{BuildNumber}#"
+  releaseName: "#{ReleaseName}#"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internal-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}, {"HTTP":80}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:#{tenantawsId}#:certificate/#{certificateId}#
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  rules:
+    - host: ingestion-mgmt.#{tenantId}#.#{envName}#.atomx.nanostring.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ingestion-mgmt
+                port:
+                  number: 80

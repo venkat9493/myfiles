@@ -1,0 +1,119 @@
+# Docker unified build pipeline
+# Build a Docker image and push to aws ecr
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+parameters:
+- name: agent_name
+  type: string
+  default: ""
+  values:
+  - qa-linux-meridian-eu-12345-buildagent
+- name: branch_type
+  type: string
+  default: ""
+  values:
+  - tags
+  - heads
+- name: branchName_tag
+  type: string
+  default: ""
+  #values:
+  #- develop
+  #- main
+- name: env_name
+  type: string
+  default: ""
+  values:
+  - qaeu
+- name: ecrName
+  type: string
+  default: ""
+  
+trigger:
+- none
+
+stages:
+        
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool: ${{ parameters.agent_name }} 
+    variables:
+       - group: unified-group-qaeu
+    
+    steps:
+    #- checkout: git://Meridian/audit-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    #- checkout: git://Meridian/authentication-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    # - checkout: git://Meridian/catalog-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+    - checkout: git://Meridian/atomics-devops-code@main
+      clean: false
+    # - checkout: git://Meridian/collab-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    #- checkout: git://Meridian/infra-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    # - checkout: git://Meridian/ingestion-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+    # - checkout: git://Meridian/instrument-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+    - checkout: git://Meridian/Meridian-Angular-UI@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+      clean: false
+    #- checkout: git://Meridian/metering-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    # - checkout: git://Meridian/notification-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+    #- checkout: git://Meridian/payment-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    #- checkout: git://Meridian/platform-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    # - checkout: git://Meridian/study-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+    #- checkout: git://Meridian/subscription-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    #- checkout: git://Meridian/sbio-simulator@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #  clean: false
+    # - checkout: git://Meridian/tenant-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+    # - checkout: git://Meridian/ui-microservice@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+    # - checkout: git://Meridian/user-mgmt-svc@refs/${{ parameters.branch_type }}/${{ parameters.branchName_tag }}
+    #   clean: false
+
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          cd $(System.DefaultWorkingDirectory)/atomics-devops-code/pipelinecode
+          sed -i 's/\r//' repolist-eu.txt 
+          #!/bin/bash
+          sudo chmod -R 777 /var/run/docker.sock
+          for repo in `cat repolist-eu.txt`
+           # echo "REPO : $repo - $(Build.BuildNumber)"
+          do
+            if [[ $repo == "Meridian-Angular-UI" ]]
+            then
+              docker build -f $(System.DefaultWorkingDirectory)/Meridian-Angular-UI/Dockerfile -t meridian-angular-ui:$(Build.BuildNumber) --build-arg environment=${{ parameters.env_name }} $(System.DefaultWorkingDirectory)/Meridian-Angular-UI
+              docker tag meridian-angular-ui:$(Build.BuildNumber) $(account-id).dkr.ecr.eu-central-1.amazonaws.com/${{ parameters.ecrName }}:meridian-angular-ui-${{ parameters.branchName_tag }}-$(Build.BuildNumber)
+              aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin $(account-id).dkr.ecr.eu-central-1.amazonaws.com
+              docker push $(account-id).dkr.ecr.eu-central-1.amazonaws.com/${{ parameters.ecrName }}:meridian-angular-ui-${{ parameters.branchName_tag }}-$(Build.BuildNumber)
+            elif [[ $repo == "ui-microservice" ]]
+            then
+              docker build -f $(System.DefaultWorkingDirectory)/$repo/Dockerfile -t $repo:$(Build.BuildNumber) --build-arg PAT=$(NUGET_PAT) $(System.DefaultWorkingDirectory)/$repo
+              docker tag $repo:$(Build.BuildNumber) $(account-id).dkr.ecr.eu-central-1.amazonaws.com/${{ parameters.ecrName }}:$repo-${{ parameters.branchName_tag }}-$(Build.BuildNumber)
+              aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin $(account-id).dkr.ecr.eu-central-1.amazonaws.com
+              docker push $(account-id).dkr.ecr.eu-central-1.amazonaws.com/${{ parameters.ecrName }}:$repo-${{ parameters.branchName_tag }}-$(Build.BuildNumber)
+            else
+              docker build -f $(System.DefaultWorkingDirectory)/$repo-svc/Dockerfile -t $repo:$(Build.BuildNumber) --build-arg PAT=$(NUGET_PAT) $(System.DefaultWorkingDirectory)/$repo-svc
+              docker tag $repo:$(Build.BuildNumber) $(account-id).dkr.ecr.eu-central-1.amazonaws.com/${{ parameters.ecrName }}:$repo-${{ parameters.branchName_tag }}-$(Build.BuildNumber)
+              aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin $(account-id).dkr.ecr.eu-central-1.amazonaws.com
+              docker push $(account-id).dkr.ecr.eu-central-1.amazonaws.com/${{ parameters.ecrName }}:$repo-${{ parameters.branchName_tag }}-$(Build.BuildNumber)
+            fi
+
+            sudo docker image prune -f -a
+          done
+
+        workingDirectory: '$(System.DefaultWorkingDirectory)'

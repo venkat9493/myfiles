@@ -1,0 +1,8 @@
+resources:
+  pipelines:
+  - pipeline: audit-mgmt-svc-devhub
+    source: audit-mgmt-svc-devhub    
+  - pipeline: authentication-svc-devhub
+    source: authentication-svc-devhub
+steps:
+- bash: echo "Audit Runs First Then Authentication"
