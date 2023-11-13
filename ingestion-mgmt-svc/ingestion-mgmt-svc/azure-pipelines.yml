@@ -1,0 +1,131 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- initial-project-structure
+
+resources:
+- repo: self
+
+
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest 
+    variables:
+       tags: $(Build.BuildId)   
+
+    steps:    
+    - task: CopyFiles@2
+      displayName: Copy Dev Artifacts
+      inputs:
+        Contents: 'Deploy/deployment.yaml'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+    - task: PublishBuildArtifacts@1
+      displayName: Publish Dev Build Artifacts
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+    - task: Docker@2
+      displayName: Build a Dev image
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/Meridian.IngestionManagement/Dockerfile'
+        buildContext: '$(System.DefaultWorkingDirectory)'
+        repository: '$(AWS_ECR_REPOSITORY_URI)'
+        tags: |
+          $(Build.BuildId)
+          latest     
+          
+    - task: ECRPushImage@1
+      displayName: Push an Image to Dev ECR
+      inputs:
+        awsCredentials: '$(AWS_CREDENTIALS)'
+        regionName: '$(AWS_REGION)'
+        imageSource: 'imagename'
+        sourceImageName: '$(AWS_ECR_REPOSITORY_URI)'
+        sourceImageTag: '$(Build.BuildId)'
+        repositoryName: '$(AWS_ECR_REPOSITORY_NAME)'
+        pushTag: '$(Build.BuildId)'
+        
+    - task: CopyFiles@2
+      displayName: Copy Files to QA
+      inputs:
+        Contents: 'QaDeploy/deployment.yaml'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: Publish QA Build Artifacts
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container' 
+        
+
+    - task: Docker@2
+      displayName: Build a QA image
+      env:
+        ASPNETCORE_ENVIRONMENT: QA
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/Meridian.IngestionManagement/Dockerfile'
+        buildContext: '$(System.DefaultWorkingDirectory)'
+        repository: '$(AWS_QA_ECR_REPOSITORY_URI)'
+        tags: |
+          $(Build.BuildId)
+          latest   
+    - task: ECRPushImage@1
+      displayName: push an Image to QA-ECR
+      inputs:
+        awsCredentials: '$(AWS_QA_CREDENTIALS)'
+        regionName: '$(AWS_QA_REGION)'
+        imageSource: 'imagename'
+        sourceImageName: '$(AWS_QA_ECR_REPOSITORY_URI)'
+        sourceImageTag: '$(Build.BuildId)'
+        repositoryName: '$(AWS_QA_ECR_REPOSITORY_NAME)'
+        pushTag: '$(Build.BuildId)'
+    - task: CopyFiles@2
+      displayName: Copy Files to UAT
+      inputs:
+        Contents: 'Deploy-uat/deployment.yaml'
+        TargetFolder: '$(build.artifactstagingdirectory)'
+        
+    - task: PublishBuildArtifacts@1
+      displayName: Publish UAT Build Artifacts
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container' 
+        
+
+    - task: Docker@2
+      displayName: Build a UAT image
+      env:
+        ASPNETCORE_ENVIRONMENT: UAT
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/Meridian.IngestionManagement/Dockerfile'
+        arguments: '--build-arg environment=Development'
+        buildContext: '$(System.DefaultWorkingDirectory)'
+        repository: '$(AWS_UAT_ECR_REPOSITORY_URI)'
+        tags: |
+          $(Build.BuildId)
+          latest   
+    - task: ECRPushImage@1
+      displayName: push an Image to UAT-ECR
+      inputs:
+        awsCredentials: '$(AWS_UAT_CREDENTIALS)'
+        regionName: '$(AWS_UAT_REGION)'
+        imageSource: 'imagename'
+        autoCreateRepository: true
+        sourceImageName: '$(AWS_UAT_ECR_REPOSITORY_URI)'
+        sourceImageTag: '$(Build.BuildId)'
+        repositoryName: '$(AWS_UAT_ECR_REPOSITORY_NAME)'
+        pushTag: '$(Build.BuildId)'

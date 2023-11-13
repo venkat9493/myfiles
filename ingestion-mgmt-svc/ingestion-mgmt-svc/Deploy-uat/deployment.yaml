@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: uat-ingestion-mgmt-svc
+  name: uat-ingestion-mgmt-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uat-ingestion-mgmt-svc
+  template:
+    metadata:
+      labels:
+        app: uat-ingestion-mgmt-svc
+    spec:
+      containers:
+      - name: uat-ingestion-mgmt-svc
+        image: #{uatAccountId}#.dkr.ecr.us-west-2.amazonaws.com/uat-ingestion-mgmt-svc:#{Build.BuildId}#
+        imagePullPolicy: Always
+         
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: uat-ingestion-mgmt-svc
+    k8s-app: uat-ingestion-mgmt-svc
+  name: uat-ingestion-mgmt-svc
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  type: LoadBalancer
+  selector:
+    app: uat-ingestion-mgmt-svc
