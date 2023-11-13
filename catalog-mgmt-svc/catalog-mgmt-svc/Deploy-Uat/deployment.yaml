@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: uat-catalogmanagement
+  name: uat-catalogmanagement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uat-catalogmanagement
+  template:
+    metadata:
+      labels:
+        app: uat-catalogmanagement
+    spec:
+      containers:
+      - name: uat-catalogmanagement
+        image: #{uatAccountId}#.dkr.ecr.us-west-2.amazonaws.com/uat-catalog-mgmt-svc:#{Build.BuildId}#
+        imagePullPolicy: Always
+         
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: uat-catalogmanagement
+    k8s-app: uat-catalogmanagement
+  name: uat-catalogmanagement
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  type: LoadBalancer
+  selector:
+    app: uat-catalogmanagement

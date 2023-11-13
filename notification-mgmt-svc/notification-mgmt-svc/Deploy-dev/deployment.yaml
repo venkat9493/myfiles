@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dev-notifications-svc
+  name: dev-notifications-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-notifications-svc
+  template:
+    metadata:
+      labels:
+        app: dev-notifications-svc
+    spec:
+      containers:
+      - name: dev-notifications-svc
+        image: #{devAccountId}#.dkr.ecr.us-west-2.amazonaws.com/dev-notifications-mgmt-svc:#{Build.BuildId}#
+        imagePullPolicy: Always
+         
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dev-notifications-svc
+    k8s-app: dev-notifications-svc
+  name: dev-notifications-svc
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  type: LoadBalancer
+  selector:
+    app: dev-notifications-svc

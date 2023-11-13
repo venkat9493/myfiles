@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dev-catalogmanagement
+  name: dev-catalogmanagement
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dev-catalogmanagement
+  template:
+    metadata:
+      labels:
+        app: dev-catalogmanagement
+    spec:
+      containers:
+      - name: dev-catalogmanagement
+        image: #{devAccountId}#.dkr.ecr.us-west-2.amazonaws.com/dev-catalogmanagement:#{Build.BuildId}#
+        imagePullPolicy: Always
+         
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: dev-catalogmanagement
+    k8s-app: dev-catalogmanagement
+  name: dev-catalogmanagement
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  type: LoadBalancer
+  selector:
+    app: dev-catalogmanagement
