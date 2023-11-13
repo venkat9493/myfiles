@@ -1,0 +1,36 @@
+image: python:3.9
+pipelines:
+  default: 
+  #branches:
+   # master:
+    - step:
+        name: Build artifact
+        script:
+          - python -m pip install --upgrade pip
+          - apt-get update && apt-get install -y zip
+          - pip install openpyxl
+          - python Test_source_code/ray_tracing/matlab_version.py sdist
+          - python Machine_learning_model_parameter/Machine_learning_model_parameter_version.py sdist
+          - python Performance_evaluation_code/Performance_evaluation_code_version.py sdist
+          - python Training_source_code/training_source_code_version.py sdist
+          - python Training_data/training_data_version.py sdist 
+          - python Test_data/xlversion.py sdist
+          - python rt2d_release.py sdist
+          - zip -r /tmp/RT2D_IOL_Calculator.zip *
+          - mkdir RT2D_IOL_Calculator
+          - mv /tmp/RT2D_IOL_Calculator.zip RT2D_IOL_Calculator
+        artifacts:
+          - RT2D_IOL_Calculator/*
+    - step:
+        name: Deploy to S3
+        deployment: production
+        script:
+          - pipe: atlassian/aws-s3-deploy:0.3.8
+            variables:
+              AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY
+              AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS
+              AWS_DEFAULT_REGION: 'us-east-1'
+              S3_BUCKET: 'rt2dcalculator'
+              LOCAL_PATH: 'RT2D_IOL_Calculator'
+              ACL: 'public-read'
+              
